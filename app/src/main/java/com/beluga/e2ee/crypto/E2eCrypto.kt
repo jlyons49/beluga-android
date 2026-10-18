@@ -151,6 +151,18 @@ object E2eCrypto {
         return KeyFactory.getInstance("EC", bcProvider).generatePrivate(spec)
     }
 
+    /**
+     * Derives the corresponding public key from a P-384 EC private key.
+     */
+    fun privateKeyToPublicKey(privateKey: PrivateKey): PublicKey {
+        val bcKey = privateKey as? org.bouncycastle.jcajce.provider.asymmetric.ec.BCECPrivateKey
+            ?: throw IllegalArgumentException("PrivateKey is not a BouncyCastle BCECPrivateKey")
+        val params = ECNamedCurveTable.getParameterSpec(CURVE)
+        val q = params.g.multiply(bcKey.d)
+        val spec = ECPublicKeySpec(q, params)
+        return KeyFactory.getInstance("EC", bcProvider).generatePublic(spec)
+    }
+
     // --- Raw ECDH ---
 
     /**
@@ -249,9 +261,13 @@ object E2eCrypto {
      * Compresses plaintext (RFC 1950 zlib with NO padding), encrypts with AES-256-GCM,
      * and authenticates any provided AAD metadata.
      */
-    fun encrypt(plaintext: ByteArray, key: ByteArray, aad: ByteArray? = null): EncryptedPayload {
+    fun encrypt(
+        plaintext: ByteArray,
+        key: ByteArray,
+        aad: ByteArray? = null,
+        iv: ByteArray = ByteArray(GCM_IV_BYTES).also { secureRandom.nextBytes(it) }
+    ): EncryptedPayload {
         val compressed = zlibCompress(plaintext)
-        val iv = ByteArray(GCM_IV_BYTES).also { secureRandom.nextBytes(it) }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(GCM_TAG_BITS, iv))
         if (aad != null) {

@@ -1,0 +1,92 @@
+name: Android CI/CD & Release
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build, Test & Package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant Execute Permission for Gradlew
+        run: chmod +x gradlew
+
+      - name: Run Unit Tests
+        run: ./gradlew testDebugUnitTest
+
+      - name: Run Android Lint
+        run: ./gradlew lintDebug
+
+      - name: Assemble Debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: beluga-debug-apk
+          path: app/build/outputs/apk/debug/beluga-debug.apk
+          retention-days: 14
+
+      # --- Release Packaging & Publishing (Only on version tags: v*) ---
+      - name: Decode Release Keystore
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > /tmp/release.jks
+
+      - name: Build Release APK & Bundle (AAB)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          KEYSTORE_FILE: /tmp/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          ./gradlew assembleRelease bundleRelease
+
+      - name: Compute Checksums
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cd app/build/outputs
+          mkdir -p release-artifacts
+          cp apk/release/beluga-release.apk release-artifacts/
+          cp bundle/release/beluga-release.aab release-artifacts/
+          cd release-artifacts
+          sha256sum beluga-release.apk beluga-release.aab > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Clean Keystore
+        if: always() && startsWith(github.ref, 'refs/tags/v')
+        run: |
+          rm -f /tmp/release.jks
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            app/build/outputs/release-artifacts/beluga-release.apk
+            app/build/outputs/release-artifacts/beluga-release.aab
+            app/build/outputs/release-artifacts/SHA256SUMS.txt
+          generate_release_notes: true

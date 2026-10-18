@@ -23,6 +23,14 @@ class BelugaApplication : Application(), DefaultLifecycleObserver {
         DatabaseRepository(this)
     }
 
+    val e2eSystem: com.beluga.e2ee.protocol.E2eSystem by lazy {
+        com.beluga.e2ee.protocol.E2eSystem(databaseRepository)
+    }
+
+    suspend fun lock() {
+        databaseRepository.lock()
+    }
+
     private val applicationScope = CoroutineScope(Dispatchers.Default + Job())
     private var lockJob: Job? = null
 

@@ -52,6 +52,8 @@ class DatabaseRepository(val encryptedDb: EncryptedDatabase) {
         encryptedDb.exists()
     }
 
+    suspend fun isDatabaseCreated(): Boolean = exists()
+
     /**
      * Initializes a brand-new database with the given master password.
      */
