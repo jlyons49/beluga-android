@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Beluga Ocean Theme Colors -->
+    <color name="beluga_primary">#0E7490</color>
+    <color name="beluga_primary_container">#164E63</color>
+    <color name="beluga_on_primary">#FFFFFF</color>
+    <color name="beluga_dark_bg">#081622</color>
+    <color name="beluga_surface">#0F2132</color>
+    <color name="beluga_teal">#06B6D4</color>
+    <color name="beluga_accent">#38BDF8</color>
+</resources>
